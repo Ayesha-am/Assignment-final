@@ -1,0 +1,345 @@
+import pickle
+import tkinter as tk
+from tkinter import simpledialog, messagebox
+from datetime import datetime
+
+#Classes Definition
+
+class User:
+    """Represents a generic user of the system."""
+    def __init__(self, username, password):
+        self._username = username
+        self._password = password
+
+    def login(self, username, password):
+        """Verifies if the provided credentials match."""
+        return self._username == username and self._password == password
+
+
+class Customer(User):
+    """Represents a customer who can purchase tickets."""
+    def __init__(self, username, password, email):
+        super().__init__(username, password)
+        self.email = email
+        self.purchase_history = []
+
+    def view_tickets(self):
+        """Returns the list of purchased tickets."""
+        return self.purchase_history
+
+    def purchase_ticket(self, ticket):
+        """Adds a ticket to the customer's purchase history."""
+        self.purchase_history.append(ticket)
+        return f"Ticket {ticket.ticket_id} purchased."
+
+
+class Admin(User):
+    """Represents an admin who can manage ticket discounts."""
+    def __init__(self, username, password):
+        super().__init__(username, password)
+
+    def update_ticket_discount(self, ticket, discount):
+        """Applies a discount to the given ticket."""
+        ticket.apply_discount(discount)
+        return f"Discount of {discount}% applied to {ticket.ticket_type}."
+
+
+class Ticket:
+    """Represents a theme park ticket."""
+    def __init__(self, ticket_id, ticket_type, price, validity, features, limitations):
+        self.ticket_id = ticket_id
+        self.ticket_type = ticket_type
+        self.price = price
+        self.validity = validity
+        self.features = features
+        self.limitations = limitations
+        self.purchase_mode = None
+        self.reservation_date = None
+        self.payment_method = None
+
+    def apply_discount(self, discount):
+        """Reduces the ticket price by a percentage discount."""
+        self.price -= self.price * (discount / 100)
+
+
+# --- GUI Implementation ---
+
+class TicketingSystemGUI:
+    """Manages the GUI for the ticketing system."""
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Adventure Land Theme Park Ticketing System")
+        self.root.geometry("800x600")
+
+        # Data structures to store users and tickets
+        self.customers = {}  # Stores customer accounts
+        self.admins = {"admin": Admin("admin", "admin123")}  # Preloaded admin account
+        self.tickets = []  # List of available tickets
+
+        # Preload some default tickets
+        self.preload_tickets()
+
+        # Load customer data from storage
+        self.load_data()
+
+        # Initialize the GUI
+        self.setup_gui()
+
+    def preload_tickets(self):
+        """Loads predefined tickets into the system."""
+        self.tickets = [
+            Ticket(101, "Single-Day Pass", 275, "1 Day", "Access to the park for one day", "Valid only on selected date"),
+            Ticket(102, "Two-Day Pass", 480, "2 Days", "Access to the park for two consecutive days", "Cannot be split over multiple trips"),
+            Ticket(103, "Annual Membership", 1840, "1 Year", "Unlimited access for one year", "Must be used by the same person"),
+            Ticket(104, "Group Ticket (<10)", 220, "1 Day", "Special rate for groups of 10 or more", "Must be booked in advance"),
+        ]
+
+    def setup_gui(self):
+        """Sets up the initial login screen of the GUI."""
+        self.clear_gui()
+        tk.Label(self.root, text="Adventure Land Theme Park", font=("Arial", 24, "bold")).pack(pady=10)
+
+        tk.Label(self.root, text="Login as:").pack(pady=5)
+        self.role = tk.StringVar()
+        self.role.set("Guest")
+        tk.OptionMenu(self.root, self.role, "Guest", "Admin").pack(pady=5)
+
+        tk.Label(self.root, text="Username:").pack(pady=5)
+        self.username_entry = tk.Entry(self.root)
+        self.username_entry.pack(pady=5)
+
+        tk.Label(self.root, text="Password:").pack(pady=5)
+        self.password_entry = tk.Entry(self.root, show="*")
+        self.password_entry.pack(pady=5)
+
+        # Buttons for login and account creation
+        self.login_button = tk.Button(self.root, text="Login", command=self.login)
+        self.login_button.pack(pady=10)
+
+        self.create_account_button = tk.Button(self.root, text="Create Account (Guest Only)", command=self.create_account)
+        self.create_account_button.pack(pady=10)
+
+    def login(self):
+        """Handles user login based on the selected role."""
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        selected_role = self.role.get()
+
+        if selected_role == "Guest":
+            # Verify guest credentials
+            if username in self.customers and self.customers[username].login(username, password):
+                messagebox.showinfo("Login Successful", "Welcome to Adventure Land!")
+                self.customer_dashboard(self.customers[username])
+            else:
+                messagebox.showerror("Error", "Invalid Guest username or password.")
+        elif selected_role == "Admin":
+            # Verify admin credentials
+            if username in self.admins and self.admins[username].login(username, password):
+                messagebox.showinfo("Admin Login Successful", "Welcome Admin!")
+                self.admin_dashboard()
+            else:
+                messagebox.showerror("Error", "Invalid Admin username or password.")
+
+    def create_account(self):
+        """Creates a new account for guests."""
+        self.clear_gui()
+        tk.Label(self.root, text="Create Account", font=("Arial", 18)).pack(pady=10)
+
+        tk.Label(self.root, text="Username:").pack(pady=5)
+        username_entry = tk.Entry(self.root)
+        username_entry.pack(pady=5)
+
+        tk.Label(self.root, text="Password:").pack(pady=5)
+        password_entry = tk.Entry(self.root, show="*")
+        password_entry.pack(pady=5)
+
+        tk.Label(self.root, text="Email:").pack(pady=5)
+        email_entry = tk.Entry(self.root)
+        email_entry.pack(pady=5)
+
+        def save_account():
+            """Saves the new account details."""
+            username = username_entry.get()
+            password = password_entry.get()
+            email = email_entry.get()
+
+            if username in self.customers:
+                messagebox.showerror("Error", "Username already exists.")
+            else:
+                # Create a new customer account
+                self.customers[username] = Customer(username, password, email)
+                messagebox.showinfo("Success", f"Account created for {username}!")
+                self.save_data()
+                self.setup_gui()
+
+        # Save and return buttons
+        tk.Button(self.root, text="Save Account", command=save_account).pack(pady=10)
+        tk.Button(self.root, text="Back to Login", command=self.setup_gui).pack(pady=10)
+
+    def customer_dashboard(self, customer):
+        """Displays the customer dashboard after login."""
+        self.clear_gui()
+        tk.Label(self.root, text=f"Welcome {customer._username}!", font=("Arial", 16)).pack(pady=10)
+
+        tk.Button(self.root, text="Purchase Ticket", command=lambda: self.purchase_ticket(customer)).pack(pady=5)
+        tk.Button(self.root, text="View Purchase History", command=lambda: self.view_purchase_history(customer)).pack(pady=5)
+        tk.Button(self.root, text="Modify Booking", command=lambda: self.modify_booking(customer)).pack(pady=5)
+        tk.Button(self.root, text="Park Information", command=self.show_park_information).pack(pady=5)
+        tk.Button(self.root, text="Logout", command=self.setup_gui).pack(pady=10)
+
+    def purchase_ticket(self, customer):
+        """Handles the ticket purchase process for a customer."""
+        ticket_options = "\n".join([f"{t.ticket_id}: {t.ticket_type} - {t.price} AED" for t in self.tickets])
+        ticket_id = simpledialog.askinteger("Purchase Ticket", f"Available Tickets:\n{ticket_options}\nEnter Ticket ID to purchase:")
+
+        for ticket in self.tickets:
+            if ticket.ticket_id == ticket_id:
+                # Get payment method and reservation date
+                payment_method = simpledialog.askstring("Payment Method", "Enter payment method (Credit Card/Digital Wallet):")
+                if payment_method not in ["Credit Card", "Digital Wallet"]:
+                    messagebox.showerror("Error", "Invalid payment method.")
+                    return
+
+                reservation_date = simpledialog.askstring("Reservation Date", "Enter reservation date (YYYY-MM-DD):")
+                try:
+                    if reservation_date:
+                        datetime.strptime(reservation_date, "%Y-%m-%d")
+                except ValueError:
+                    messagebox.showerror("Error", "Invalid date format.")
+                    return
+
+                # Update ticket details and purchase
+                ticket.purchase_mode = "Online"
+                ticket.payment_method = payment_method
+                ticket.reservation_date = reservation_date
+                result = customer.purchase_ticket(ticket)
+                messagebox.showinfo("Success", f"{result} Payment Method: {payment_method}")
+                self.save_data()
+                return
+
+        messagebox.showerror("Error", "Invalid Ticket ID.")
+
+    def modify_booking(self, customer):
+        """Allows customers to modify their ticket bookings."""
+        tickets = customer.view_tickets()
+        if not tickets:
+            messagebox.showinfo("Modify Booking", "No tickets available to modify.")
+            return
+
+        ticket_options = "\n".join([f"{i + 1}. {t.ticket_type} (ID: {t.ticket_id}, Date: {t.reservation_date or 'N/A'})"
+                                    for i, t in enumerate(tickets)])
+        choice = simpledialog.askinteger("Modify Booking", f"Your Tickets:\n{ticket_options}\nEnter ticket number to modify:")
+
+        if choice and 1 <= choice <= len(tickets):
+            selected_ticket = tickets[choice - 1]
+
+            # Update reservation details
+            new_date = simpledialog.askstring("Modify Reservation Date", "Enter new reservation date (YYYY-MM-DD):")
+            try:
+                if new_date:
+                    datetime.strptime(new_date, "%Y-%m-%d")
+                    selected_ticket.reservation_date = new_date
+
+                new_mode = simpledialog.askstring("Modify Purchase Mode", "Enter new purchase mode (Online/In-Person):")
+                if new_mode and new_mode in ["Online", "In-Person"]:
+                    selected_ticket.purchase_mode = new_mode
+
+                messagebox.showinfo("Success", "Ticket booking has been updated!")
+                self.save_data()
+            except ValueError:
+                messagebox.showerror("Error", "Invalid date format.")
+        else:
+            messagebox.showerror("Error", "Invalid ticket selection.")
+
+    def show_park_information(self):
+        """Displays park attractions and facilities."""
+        attractions = (
+            "Welcome to Adventure Land Theme Park!\n\n"
+            "Attractions:\n- Roller Coasters\n- Water Rides\n- Kid Zones\n\n"
+            "Events:\n- Fireworks Show\n- Parade at Sunset\n\n"
+            "Services:\n- Food Courts\n- Souvenir Shops\n- First Aid Stations\n\n"
+            "Enjoy your visit!"
+        )
+        messagebox.showinfo("Park Information", attractions)
+
+    def view_purchase_history(self, customer):
+        """Shows the purchase history of a customer."""
+        tickets = customer.view_tickets()
+        if not tickets:
+            messagebox.showinfo("Purchase History", "No tickets purchased yet.")
+            return
+
+        history = "\n\n".join([
+            f"Ticket Type: {t.ticket_type}\nPrice: {t.price} AED\nMode: {t.purchase_mode or 'N/A'}\n"
+            f"Payment: {t.payment_method or 'N/A'}\nReservation Date: {t.reservation_date or 'N/A'}"
+            for t in tickets
+        ])
+        messagebox.showinfo("Purchase History", history)
+
+    def admin_dashboard(self):
+        """Displays the admin dashboard."""
+        self.clear_gui()
+        tk.Label(self.root, text="Admin Dashboard", font=("Arial", 18)).pack(pady=10)
+
+        tk.Button(self.root, text="View All Purchases", command=self.view_all_purchases).pack(pady=5)
+        tk.Button(self.root, text="Update Ticket Discounts", command=self.update_ticket_discounts).pack(pady=5)
+        tk.Button(self.root, text="Logout", command=self.setup_gui).pack(pady=10)
+
+    def view_all_purchases(self):
+        """Displays all ticket purchases made by all customers."""
+        if not self.customers:
+            messagebox.showinfo("All Purchases", "No customers found.")
+            return
+
+        all_purchases = []
+        for username, customer in self.customers.items():
+            purchases = customer.view_tickets()
+            if purchases:
+                customer_history = f"Customer: {username} ({customer.email})\n" + "\n".join([
+                    f"  - Ticket Type: {t.ticket_type}, Price: {t.price} AED, Reservation Date: {t.reservation_date or 'N/A'}"
+                    for t in purchases
+                ])
+                all_purchases.append(customer_history)
+
+        if all_purchases:
+            messagebox.showinfo("All Purchases", "\n\n".join(all_purchases))
+        else:
+            messagebox.showinfo("All Purchases", "No tickets have been purchased yet.")
+
+    def update_ticket_discounts(self):
+        """Allows the admin to apply discounts to tickets."""
+        ticket_id = simpledialog.askinteger("Update Discounts", "Enter Ticket ID:")
+        discount = simpledialog.askinteger("Update Discounts", "Enter Discount Percentage:")
+
+        for ticket in self.tickets:
+            if ticket.ticket_id == ticket_id:
+                ticket.apply_discount(discount)
+                messagebox.showinfo("Success", f"Discount of {discount}% applied to {ticket.ticket_type}!")
+                self.save_data()
+                return
+
+        messagebox.showerror("Error", "Invalid Ticket ID.")
+
+    def clear_gui(self):
+        """Clears all widgets from the current screen."""
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    def load_data(self):
+        """Loads saved customer data from a file."""
+        try:
+            with open("customers.pkl", "rb") as f:
+                self.customers = pickle.load(f)
+        except FileNotFoundError:
+            pass
+
+    def save_data(self):
+        """Saves customer data to a file."""
+        with open("customers.pkl", "wb") as f:
+            pickle.dump(self.customers, f)
+
+
+# Main Program
+if __name__ == "__main__":
+    app = TicketingSystemGUI()
+    app.root.mainloop()
