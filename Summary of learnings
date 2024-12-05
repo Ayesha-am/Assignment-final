@@ -1,0 +1,9 @@
+Summary of learnings:
+
+The learning outcomes of this assignment encompass key object-oriented programming concepts, GUI implementation, class relationships, exception handling, and polymorphism.
+The GUI design demonstrates how to build interactive user interfaces with tkinter, enabling user login, ticket management, and admin functionalities, emphasizing usability and event-driven programming.
+The relationships between the classes, including inheritance (Customer and Admin inherit from User), aggregation (Customer aggregates Ticket), association (Admin manages Ticket), and composition (TicketingSystemGUI manages Customer, Admin, and Ticket), highlight the structural design of a complex system and how components interact.
+Exception handling is evident in scenarios like validating user inputs (e.g., invalid dates or payment methods) to ensure the program remains robust and user-friendly.
+Polymorphism is subtly applied through methods like login(), where both Customer and Admin share the same interface but exhibit different behaviors based on their roles.
+Overall, this assignment integrates practical programming skills with theoretical concepts, enhancing the understanding of designing and implementing modular, maintainable, and user-focused software systems.
+
